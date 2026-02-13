@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AED 網頁模擬器</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --panel:#121a2a;
+      --panel2:#0f1727;
+      --text:#e6eefc;
+      --muted:#9fb3d1;
+      --ok:#3ddc84;
+      --warn:#ffd166;
+      --danger:#ff4d4d;
+      --line:#25324d;
+      --shadow: 0 14px 40px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+      background: radial-gradient(1200px 600px at 30% 10%, #16244a 0%, var(--bg) 55%) fixed;
+      color:var(--text);
+    }
+    .wrap{
+      max-width: 1180px;
+      margin: 24px auto;
+      padding: 0 16px 28px;
+    }
+    header{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom: 14px;
+    }
+    h1{
+      margin:0;
+      font-size: 22px;
+      letter-spacing:.5px;
+    }
+    .sub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 420px 1fr;
+      gap: 16px;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding: 14px 16px;
+      background: rgba(255,255,255,.02);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+    }
+    .badge{
+      font-size:12px;
+      color: var(--muted);
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.18);
+    }
+    .card .bd{
+      padding: 16px;
+    }
+
+    /* AED panel */
+    .aed{
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+    }
+    .screen{
+      background: linear-gradient(180deg, #071026, #071026);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 14px 14px 12px;
+      min-height: 150px;
+      position:relative;
+      overflow:hidden;
+    }
+    .screen:before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background: radial-gradient(400px 220px at 30% 20%, rgba(80,140,255,.18), transparent 55%);
+      pointer-events:none;
+    }
+    .statusLine{
+      position:relative;
+      z-index:1;
+      font-size: 16px;
+      font-weight: 650;
+      letter-spacing:.3px;
+      margin-bottom: 10px;
+    }
+    .statusSub{
+      position:relative;
+      z-index:1;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      min-height: 42px;
+    }
+    .timer{
+      position:absolute;
+      right: 12px;
+      bottom: 10px;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,.75);
+      font-size: 12px;
+      z-index:1;
+    }
+    .controls{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    button{
+      border: 0;
+      border-radius: 16px;
+      padding: 14px 14px;
+      color: var(--text);
+      font-weight: 700;
+      letter-spacing:.3px;
+      cursor:pointer;
+      transition: transform .06s ease, filter .2s ease, opacity .2s ease;
+      box-shadow: 0 10px 26px rgba(0,0,0,.35);
+      user-select:none;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:active{ transform: translateY(1px) scale(.99); }
+    .powerBtn{
+      background: linear-gradient(180deg, rgba(61,220,132,.95), rgba(34,170,100,.92));
+      color: #052012;
+    }
+    .shockBtn{
+      background: linear-gradient(180deg, rgba(255,77,77,.92), rgba(210,40,40,.92));
+    }
+    .shockBtn[disabled]{
+      opacity:.45;
+      cursor:not-allowed;
+      filter:saturate(.7);
+      box-shadow:none;
+    }
+    .shockBtn.flash{
+      animation: flash 0.6s infinite;
+    }
+    @keyframes flash{
+      0%{ filter: brightness(1); }
+      50%{ filter: brightness(1.9); }
+      100%{ filter: brightness(1); }
+    }
+
+    .smallRow{
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      justify-content:space-between;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      background: rgba(0,0,0,.18);
+    }
+    .smallRow .lbl{
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .smallRow .val{
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,.85);
+    }
+
+    /* Practice area */
+    .practice{
+      position:relative;
+      min-height: 520px;
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+    }
+    .practiceInner{
+      display:grid;
+      grid-template-columns: 1fr 280px;
+      gap: 14px;
+      padding: 16px;
+    }
+    .humanStage{
+      position:relative;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: radial-gradient(800px 420px at 40% 20%, rgba(80,140,255,.12), transparent 60%),
+                  rgba(0,0,0,.14);
+      min-height: 488px;
+      overflow:hidden;
+      touch-action: none;
+    }
+    .humanWrap{
+      position:absolute;
+      inset: 0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+      pointer-events:none;
+    }
+    .targets{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+    .target{
+      position:absolute;
+      width: 68px;
+      height: 68px;
+      border-radius: 999px;
+      border: 2px dashed rgba(255,255,255,.22);
+      background: rgba(255,255,255,.04);
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,.25);
+    }
+    .target.ok{
+      border-style: solid;
+      border-color: rgba(61,220,132,.75);
+      background: rgba(61,220,132,.10);
+    }
+    .t1{ left: 56%; top: 30%; }
+    .t2{ left: 42%; top: 58%; }
+
+    .rightPanel{
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+    }
+    .padDock{
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 18px;
+      background: rgba(0,0,0,.18);
+      padding: 12px;
+      min-height: 220px;
+      position:relative;
+    }
+    .dockTitle{
+      font-size: 13px;
+      font-weight: 650;
+      margin: 0 0 8px;
+    }
+    .dockHint{
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .pad{
+      width: 112px;
+      height: 92px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.10);
+      background:
+        radial-gradient(140px 80px at 35% 30%, rgba(255,255,255,.10), transparent 60%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      box-shadow: 0 14px 30px rgba(0,0,0,.35);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap: 10px;
+      cursor: grab;
+      user-select:none;
+      touch-action:none;
+      position:absolute;
+      left: 12px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pad:active{ cursor: grabbing; }
+    .pad .icon{
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.10);
+      display:grid;
+      place-items:center;
+      font-weight: 800;
+      color: rgba(255,255,255,.88);
+    }
+    .pad .txt{
+      display:flex;
+      flex-direction:column;
+      line-height:1.15;
+    }
+    .pad .txt .a{
+      font-size: 13px;
+      font-weight: 750;
+    }
+    .pad .txt .b{
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .pad.placed{
+      outline: 2px solid rgba(61,220,132,.65);
+      outline-offset: 2px;
+    }
+
+    .legend{
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 18px;
+      background: rgba(0,0,0,.18);
+      padding: 12px;
+    }
+    .legend p{
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      line-height:1.65;
+    }
+    .row{
+      display:flex;
+      justify-content:space-between;
+      gap: 10px;
+      padding-top: 8px;
+      margin-top: 10px;
+      border-top: 1px solid rgba(255,255,255,.08);
+      font-size: 12px;
+      color: rgba(255,255,255,.82);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .toast{
+      position:fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,.55);
+      border: 1px solid rgba(255,255,255,.12);
+      color: rgba(255,255,255,.92);
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.35);
+      opacity:0;
+      pointer-events:none;
+      transition: opacity .2s ease;
+      max-width: 92vw;
+      white-space: nowrap;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .toast.show{ opacity:1; }
+
+    @media (max-width: 980px){
+      .grid{ grid-template-columns: 1fr; }
+      .practiceInner{ grid-template-columns: 1fr; }
+      .padDock{ min-height: 260px; }
+      .pad{ position:relative; left:0; top:0; margin-bottom: 10px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>AED 網頁模擬器</h1>
+        <div class="sub">
+          流程：開機 → 拖曳兩片貼片到定位 → 自動分析與建議電擊 → 按下電擊 → 進入 CPR 節拍 110 BPM 兩分鐘 → 自動回到分析
+        </div>
+      </div>
+      <div class="badge" id="stateBadge">狀態：關機</div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <div class="hd">
+          <div style="font-weight:750">AED 控制面板</div>
+          <div class="badge" id="padsBadge">貼片：未完成</div>
+        </div>
+
+        <div class="bd aed">
+          <div class="screen" aria-live="polite">
+            <div class="statusLine" id="statusLine">請按下開關鍵</div>
+            <div class="statusSub" id="statusSub">音訊與語音會在開機後啟用</div>
+            <div class="timer" id="screenTimer">--:--</div>
+          </div>
+
+          <div class="controls">
+            <button class="powerBtn" id="powerBtn">開關</button>
+            <button class="shockBtn" id="shockBtn" disabled>電擊</button>
+          </div>
+
+          <div class="smallRow">
+            <div>
+              <div class="lbl">節拍器</div>
+              <div class="val" id="metVal">關閉</div>
+            </div>
+            <div>
+              <div class="lbl">CPR 倒數</div>
+              <div class="val" id="cprVal">--:--</div>
+            </div>
+          </div>
+
+          <div class="smallRow">
+            <div>
+              <div class="lbl">語音</div>
+              <div class="val" id="ttsVal">待啟用</div>
+            </div>
+            <div>
+              <div class="lbl">目標 BPM</div>
+              <div class="val">110</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card practice">
+        <div class="hd">
+          <div style="font-weight:750">貼片拖曳練習區</div>
+          <div class="badge">拖曳貼片到人形定位圈</div>
+        </div>
+
+        <div class="practiceInner">
+          <div class="humanStage" id="humanStage">
+            <div class="humanWrap">
+              <svg width="420" height="460" viewBox="0 0 420 460" role="img" aria-label="半身人形示意">
+                <defs>
+                  <linearGradient id="g1" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0" stop-color="rgba(255,255,255,.10)"/>
+                    <stop offset="1" stop-color="rgba(255,255,255,.03)"/>
+                  </linearGradient>
+                </defs>
+                <circle cx="210" cy="90" r="46" fill="url(#g1)" stroke="rgba(255,255,255,.12)" />
+                <rect x="190" y="134" width="40" height="28" rx="14" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.10)" />
+                <path d="M120,170
+                         C150,150 180,150 210,150
+                         C240,150 270,150 300,170
+                         C332,195 350,230 350,270
+                         C350,330 310,392 210,404
+                         C110,392 70,330 70,270
+                         C70,230 88,195 120,170Z"
+                      fill="url(#g1)" stroke="rgba(255,255,255,.12)" stroke-width="2"/>
+                <path d="M120,190 C165,170 255,170 300,190"
+                      fill="none" stroke="rgba(255,255,255,.10)" stroke-width="3" stroke-linecap="round"/>
+                <path d="M210,190 L210,350"
+                      fill="none" stroke="rgba(255,255,255,.08)" stroke-width="3" stroke-linecap="round"/>
+              </svg>
+            </div>
+
+            <div class="targets">
+              <div class="target t1" id="target1"></div>
+              <div class="target t2" id="target2"></div>
+            </div>
+          </div>
+
+          <div class="rightPanel">
+            <div class="padDock" id="padDock">
+              <div class="dockTitle">貼片</div>
+              <p class="dockHint">
+                在開機狀態下，將兩張貼片拖曳到胸前定位圈。兩片都定位後，AED 會自動開始分析並引導電擊與 CPR。
+              </p>
+
+              <div class="pad" id="pad1" data-pad="1" style="top: 112px;">
+                <div class="icon">1</div>
+                <div class="txt">
+                  <div class="a">貼片 1</div>
+                  <div class="b">上胸定位</div>
+                </div>
+              </div>
+
+              <div class="pad" id="pad2" data-pad="2" style="top: 220px;">
+                <div class="icon">2</div>
+                <div class="txt">
+                  <div class="a">貼片 2</div>
+                  <div class="b">下胸定位</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="legend">
+              <p>
+                規則<br>
+                1 兩片都定位才會進入分析<br>
+                2 分析後若建議電擊，電擊鍵會閃爍直到按下<br>
+                3 電擊後進入 CPR 兩分鐘，提供 110 BPM 節拍器<br>
+                4 兩分鐘到，自動回到分析並再次建議電擊
+              </p>
+              <div class="row">
+                <div>拖曳容錯</div>
+                <div>距離定位圈中心 40px 內自動吸附</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const STATE = {
+    OFF: "OFF",
+    WAIT_PADS: "WAIT_PADS",
+    ANALYZING: "ANALYZING",
+    SHOCK_ADVISED: "SHOCK_ADVISED",
+    CPR: "CPR",
+  };
+
+  // 固定讓步驟 2-3 小於 10 秒
+  const ANALYZE_MS = 4000;
+  const ADVISE_MS  = 3000;
+  // ANALYZE_MS + ADVISE_MS 必須 < 10000
+  const TOTAL_23_MS = ANALYZE_MS + ADVISE_MS;
+
+  let powerOn = false;
+  let currentState = STATE.OFF;
+
+  let padPlaced = { 1: false, 2: false };
+  let loopTimer = null;
+  let cprCountdownInterval = null;
+  let screenCountdownInterval = null;
+  let cprEndsAt = 0;
+
+  // Audio
+  let audioCtx = null;
+  let metronomeRunning = false;
+  let metInterval = null;
+  const BPM = 110;
+  const MET_MS = Math.round(60000 / BPM);
+
+  // Elements
+  const stateBadge = document.getElementById("stateBadge");
+  const padsBadge = document.getElementById("padsBadge");
+  const statusLine = document.getElementById("statusLine");
+  const statusSub  = document.getElementById("statusSub");
+  const screenTimer = document.getElementById("screenTimer");
+  const metVal = document.getElementById("metVal");
+  const cprVal = document.getElementById("cprVal");
+  const ttsVal = document.getElementById("ttsVal");
+
+  const powerBtn = document.getElementById("powerBtn");
+  const shockBtn = document.getElementById("shockBtn");
+
+  const humanStage = document.getElementById("humanStage");
+  const target1 = document.getElementById("target1");
+  const target2 = document.getElementById("target2");
+
+  const padDock = document.getElementById("padDock");
+  const pad1 = document.getElementById("pad1");
+  const pad2 = document.getElementById("pad2");
+
+  const toast = document.getElementById("toast");
+
+  // Helpers
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 1600);
+  }
+
+  function setBadge(){
+    const map = {
+      [STATE.OFF]: "狀態：關機",
+      [STATE.WAIT_PADS]: "狀態：等待貼片",
+      [STATE.ANALYZING]: "狀態：分析中",
+      [STATE.SHOCK_ADVISED]: "狀態：建議電擊",
+      [STATE.CPR]: "狀態：CPR",
+    };
+    stateBadge.textContent = map[currentState] || "狀態：未知";
+  }
+
+  function setPadsBadge(){
+    const ok = padPlaced[1] && padPlaced[2];
+    padsBadge.textContent = ok ? "貼片：已完成" : "貼片：未完成";
+  }
+
+  function setScreen(main, sub){
+    statusLine.textContent = main;
+    statusSub.textContent = sub || "";
+  }
+
+  function clearTimers(){
+    if(loopTimer){ clearTimeout(loopTimer); loopTimer = null; }
+    if(cprCountdownInterval){ clearInterval(cprCountdownInterval); cprCountdownInterval = null; }
+    if(screenCountdownInterval){ clearInterval(screenCountdownInterval); screenCountdownInterval = null; }
+    screenTimer.textContent = "--:--";
+    cprVal.textContent = "--:--";
+  }
+
+  function stopMetronome(){
+    metronomeRunning = false;
+    if(metInterval){ clearInterval(metInterval); metInterval = null; }
+    metVal.textContent = "關閉";
+  }
+
+  function ensureAudio(){
+    if(!audioCtx){
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if(audioCtx.state === "suspended"){
+      return audioCtx.resume();
+    }
+    return Promise.resolve();
+  }
+
+  function clickSound(){
+    if(!audioCtx) return;
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(880, t);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.25, t + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.05);
+  }
+
+  function startMetronome(){
+    stopMetronome();
+    metronomeRunning = true;
+    metVal.textContent = `${BPM} bpm`;
+    clickSound();
+    metInterval = setInterval(() => {
+      if(!metronomeRunning) return;
+      clickSound();
+    }, MET_MS);
+  }
+
+  function fmtMMSS(ms){
+    const s = Math.max(0, Math.ceil(ms/1000));
+    const mm = String(Math.floor(s/60)).padStart(2,"0");
+    const ss = String(s%60).padStart(2,"0");
+    return `${mm}:${ss}`;
+  }
+
+  // TTS
+  function getZhVoice(){
+    const voices = speechSynthesis.getVoices();
+    const zh = voices.filter(v =>
+      (v.lang && (v.lang.startsWith("zh") || v.lang.includes("cmn"))) ||
+      (v.name && (v.name.includes("Chinese") || v.name.includes("中文")))
+    );
+    return zh[0] || voices[0] || null;
+  }
+
+  function markTTSReady(){
+    if(!("speechSynthesis" in window)){
+      ttsVal.textContent = "不支援";
+      return;
+    }
+    const voices = speechSynthesis.getVoices();
+    ttsVal.textContent = (voices && voices.length > 0) ? "可用" : "可用（可能需稍候）";
+  }
+
+  function speak(text){
+    if(!powerOn) return;
+    if(!("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    const v = getZhVoice();
+    if(v) u.voice = v;
+    u.lang = v?.lang || "zh-TW";
+    u.rate = 1.02;
+    u.pitch = 1.0;
+    u.volume = 1.0;
+    speechSynthesis.speak(u);
+  }
+
+  // Unified press handler for mouse + touch
+  function bindPress(el, handler){
+    let locked = false;
+    const run = async (e) => {
+      if (locked) return;
+      locked = true;
+      try{
+        e?.preventDefault?.();
+        await handler(e);
+      } finally {
+        setTimeout(() => { locked = false; }, 250);
+      }
+    };
+    el.addEventListener("pointerdown", run, { passive: false });
+    el.addEventListener("click", run);
+  }
+
+  async function enterState(next){
+    currentState = next;
+    setBadge();
+  }
+
+  function resetPads(){
+    [pad1, pad2].forEach((p, idx) => {
+      p.classList.remove("placed");
+      if(p.parentElement !== padDock) padDock.appendChild(p);
+      p.style.left = "12px";
+      p.style.top = idx === 0 ? "112px" : "220px";
+    });
+    padPlaced = {1:false, 2:false};
+    target1.classList.remove("ok");
+    target2.classList.remove("ok");
+    setPadsBadge();
+  }
+
+  async function powerOnFlow(){
+    powerOn = true;
+    await ensureAudio();
+    markTTSReady();
+
+    clearTimers();
+    stopMetronome();
+    resetPads();
+
+    shockBtn.disabled = true;
+    shockBtn.classList.remove("flash");
+
+    await enterState(STATE.WAIT_PADS);
+    setScreen("請貼上兩片貼片", "拖曳貼片到人形胸前的兩個定位圈");
+    showToast("已開機");
+  }
+
+  function powerOffFlow(){
+    powerOn = false;
+    speechSynthesis?.cancel?.();
+
+    clearTimers();
+    stopMetronome();
+
+    shockBtn.disabled = true;
+    shockBtn.classList.remove("flash");
+
+    resetPads();
+
+    enterState(STATE.OFF);
+    setScreen("請按下開關鍵", "音訊與語音會在開機後啟用");
+    ttsVal.textContent = "待啟用";
+    showToast("已關機");
+  }
+
+  function startScreenCountdown(endTs){
+    if(screenCountdownInterval){ clearInterval(screenCountdownInterval); screenCountdownInterval = null; }
+    const tick = () => {
+      const left = endTs - Date.now();
+      screenTimer.textContent = fmtMMSS(left);
+      if(left <= 0){
+        screenTimer.textContent = "00:00";
+        clearInterval(screenCountdownInterval);
+        screenCountdownInterval = null;
+      }
+    };
+    tick();
+    screenCountdownInterval = setInterval(tick, 200);
+  }
+
+  async function startAnalyzeSequence(){
+    if(!powerOn) return;
+    if(!(padPlaced[1] && padPlaced[2])) return;
+
+    stopMetronome();
+    shockBtn.disabled = true;
+    shockBtn.classList.remove("flash");
+    clearTimers();
+
+    await enterState(STATE.ANALYZING);
+
+    // 固定 2-3 步驟總長 < 10 秒
+    const end = Date.now() + TOTAL_23_MS;
+
+    speak("正在分析心律，請勿觸碰病患");
+    setScreen("正在分析心律", "請勿觸碰病患");
+    startScreenCountdown(end);
+
+    await sleep(ANALYZE_MS);
+
+    await enterState(STATE.SHOCK_ADVISED);
+    speak("建議電擊，請勿觸碰病患");
+    setScreen("建議電擊", "請勿觸碰病患，請按下電擊鍵");
+    shockBtn.disabled = false;
+    shockBtn.classList.add("flash");
+
+    await sleep(ADVISE_MS);
+    if(currentState === STATE.SHOCK_ADVISED){
+      screenTimer.textContent = "--:--";
+    }
+  }
+
+  function startCprCountdown(){
+    if(cprCountdownInterval){ clearInterval(cprCountdownInterval); cprCountdownInterval = null; }
+    const tick = () => {
+      const left = cprEndsAt - Date.now();
+      cprVal.textContent = fmtMMSS(left);
+      if(left <= 0){
+        cprVal.textContent = "00:00";
+        clearInterval(cprCountdownInterval);
+        cprCountdownInterval = null;
+      }
+    };
+    tick();
+    cprCountdownInterval = setInterval(tick, 250);
+  }
+
+  async function onShockPressed(){
+    if(!powerOn) return;
+    if(currentState !== STATE.SHOCK_ADVISED) return;
+
+    shockBtn.disabled = true;
+    shockBtn.classList.remove("flash");
+
+    await ensureAudio();
+
+    speak("請開始進行 CPR");
+    setScreen("請開始進行 CPR", "節拍器 110 bpm，兩分鐘後將再次分析");
+    await enterState(STATE.CPR);
+
+    startMetronome();
+
+    const durationMs = 2 * 60 * 1000;
+    cprEndsAt = Date.now() + durationMs;
+
+    if(loopTimer){ clearTimeout(loopTimer); loopTimer = null; }
+    loopTimer = setTimeout(() => {
+      startAnalyzeSequence();
+    }, durationMs);
+
+    startCprCountdown();
+  }
+
+  // Drag + snap
+  function getCenterRect(el){
+    const r = el.getBoundingClientRect();
+    return { cx: r.left + r.width/2, cy: r.top + r.height/2, r };
+  }
+
+  function snapIfClose(padEl, targetEl, padId){
+    const padC = getCenterRect(padEl);
+    const tC = getCenterRect(targetEl);
+    const dx = padC.cx - tC.cx;
+    const dy = padC.cy - tC.cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const SNAP = 40;
+
+    if(dist <= SNAP){
+      const stageRect = humanStage.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+
+      const x = (targetRect.left - stageRect.left) + targetRect.width/2 - padEl.offsetWidth/2;
+      const y = (targetRect.top - stageRect.top) + targetRect.height/2 - padEl.offsetHeight/2;
+
+      if(padEl.parentElement !== humanStage){
+        humanStage.appendChild(padEl);
+      }
+      padEl.style.left = `${x}px`;
+      padEl.style.top = `${y}px`;
+      padEl.classList.add("placed");
+
+      padPlaced[padId] = true;
+      if(padId === 1) target1.classList.add("ok");
+      if(padId === 2) target2.classList.add("ok");
+      setPadsBadge();
+
+      if(padPlaced[1] && padPlaced[2] && powerOn && currentState === STATE.WAIT_PADS){
+        loopTimer = setTimeout(() => startAnalyzeSequence(), 250);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  function makeDraggable(padEl, padId){
+    let dragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    const onDown = (e) => {
+      if(!powerOn){
+        showToast("請先開機");
+        return;
+      }
+      if(currentState === STATE.ANALYZING || currentState === STATE.SHOCK_ADVISED || currentState === STATE.CPR){
+        showToast("流程進行中，暫停拖曳");
+        return;
+      }
+      dragging = true;
+      padEl.setPointerCapture(e.pointerId);
+
+      if(padEl.parentElement !== humanStage){
+        humanStage.appendChild(padEl);
+      }
+
+      const r = padEl.getBoundingClientRect();
+      offsetX = e.clientX - r.left;
+      offsetY = e.clientY - r.top;
+
+      const stageRect = humanStage.getBoundingClientRect();
+      padEl.style.left = `${(e.clientX - stageRect.left) - offsetX}px`;
+      padEl.style.top  = `${(e.clientY - stageRect.top) - offsetY}px`;
+    };
+
+    const onMove = (e) => {
+      if(!dragging) return;
+
+      const stageRect = humanStage.getBoundingClientRect();
+      const x = (e.clientX - stageRect.left) - offsetX;
+      const y = (e.clientY - stageRect.top) - offsetY;
+
+      padEl.style.left = `${x}px`;
+      padEl.style.top  = `${y}px`;
+    };
+
+    const onUp = () => {
+      if(!dragging) return;
+      dragging = false;
+
+      const ok = padId === 1
+        ? snapIfClose(padEl, target1, 1)
+        : snapIfClose(padEl, target2, 2);
+
+      if(!ok){
+        padEl.classList.remove("placed");
+        padPlaced[padId] = false;
+        if(padId === 1) target1.classList.remove("ok");
+        if(padId === 2) target2.classList.remove("ok");
+        setPadsBadge();
+        showToast("未定位，請再拖曳靠近定位圈");
+      }else{
+        showToast(`貼片 ${padId} 已定位`);
+      }
+    };
+
+    padEl.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  // Bind buttons (mouse + touch)
+  bindPress(powerBtn, async () => {
+    if(!powerOn){
+      await powerOnFlow();
+    }else{
+      powerOffFlow();
+    }
+  });
+
+  bindPress(shockBtn, async () => {
+    await onShockPressed();
+  });
+
+  // Init
+  enterState(STATE.OFF);
+  setBadge();
+  setPadsBadge();
+  makeDraggable(pad1, 1);
+  makeDraggable(pad2, 2);
+})();
+</script>
+</body>
+</html>
